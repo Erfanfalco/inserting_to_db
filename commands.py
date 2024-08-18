@@ -3,7 +3,7 @@
 daily_usable_credit_cmd = ('''SELECT  customer_data.branch_name, SUM(usable_credit), date_to_ge
                     FROM customer_credit_data
                     INNER join customer_data ON customer_data.account_number = customer_credit_data.account_number
-                    WHERE TO_DATE(customer_credit_data.date_to_ge, 'DD/MM/YYYY') = CURRENT_DATE
+                    WHERE TO_DATE(customer_credit_data.date_to_ge, 'DD/MM/YYYY') = '{0}'
                     GROUP BY ROLLUP (customer_data.branch_name, date_to_ge)
                     ORDER BY date_to_ge;
                     ''')
@@ -13,6 +13,7 @@ daily_final_credit_cmd = ('''SELECT cd.branch_name, sum(fn.credit)::float as Fin
                     FROM financial_status_data fn
                     INNER join customer_data cd
                     on cd.account_number = fn.account_number
+                    WHERE fn.tr_ge_date = '{0}'
                     GROUP by cd.branch_name, fn.tr_ge_date
                     order by branch_name, FinalCredit DESC;
                     ''')
@@ -29,6 +30,7 @@ daily_transactions_cmd = (''' WITH datas AS (
                         public.transaction_agg_data tr
                     INNER JOIN 
                         customer_stock cs ON tr.dbs_account_number = cs.account_number
+                    WHERE tr.transaction_date_ge = '{0}'
                     GROUP BY 
                         tr.branch_id, cs.stock_ins_max_l_code
                     )
@@ -50,11 +52,10 @@ daily_transactions_cmd = (''' WITH datas AS (
 weekly_wage_cmd = ('''SELECT DATE_PART('week', (tr_ge_date - INTERVAL '6 days')::date) AS Week_Number,
                     SUM(interest) AS Total_Interest,
                     MIN(tr_ge_date) as tr_ge_date
-                    FROM public.financial_status_data 
-                    WHERE tr_ge_date <= CURRENT_DATE
+                    FROM public.financial_status_data fs
+                    WHERE fs.tr_ge_date = '{0}'
                     GROUP BY Week_Number 
                     ORDER BY tr_ge_date DESC
-                    LIMIT 50;
                     ''')
 
 

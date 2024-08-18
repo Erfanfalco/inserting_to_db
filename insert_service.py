@@ -2,7 +2,8 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 import configparser
 import psycopg2
 import logging
-
+from termcolor import colored
+import datetime as dt
 from commands import usable_credit_cube_query, transaction_cube_query, final_credit_cube_query, daily_usable_credit_cmd, \
     daily_transactions_cmd, daily_final_credit_cmd, weekly_wage_cmd, weekly_wage_cube_query, \
     checking_usable_credit_cube, checking_transaction_cube, checking_final_credit_cube, checking_weekly_wage_cube
@@ -14,7 +15,7 @@ path = r"C:\Users\erfan\Downloads\projects\ETL\Prediction\App\routers\DbInfo.ini
 config.read(path)
 
 
-def get_data(cur, period='daily'):
+def get_data(cur,  date, period='daily'):
     command_map = {
         'daily': [
             daily_usable_credit_cmd,
@@ -25,11 +26,13 @@ def get_data(cur, period='daily'):
             weekly_wage_cmd
         ]
     }
+
     cmd_list = command_map[period]
     exe_list = []
+
     for query in cmd_list:
         try:
-            cur.execute(query)
+            cur.execute(query.format(date))
             exe_list.append(cur.fetchall())
         except Exception as e:
             logging.error(f"An error occurred: {e}")
@@ -37,24 +40,30 @@ def get_data(cur, period='daily'):
 
 
 def insert_data(cur, conn, period, queries):
+    limit_days = 0
+    while limit_days < 7:
+        date = dt.datetime.now().date() - dt.timedelta(days=limit_days)
+        conn.autocommit = True
 
-    conn.autocommit = True
-    inserted_data = get_data(cur, period)
-    flags = is_exist(conn, inserted_data, period)
-    for que, data, flag in zip(queries, inserted_data, flags):
-        if data[0][0] is not None:
-            if not flag:
-                try:
-                    cur.executemany(que, data)
-                    logging.info("Data inserted successfully.")
-                except Exception as e:
-                    logging.error(f"An error occurred: {e}")
-                    conn.rollback()
-                    continue
+        inserted_data = get_data(cur, date, period)
+        flags = is_exist(conn, inserted_data, period)
+
+        for que, data, flag in zip(queries, inserted_data, flags):
+
+            if any(any(item is not None for item in sub_data) for sub_data in data):
+                if not flag:
+                    try:
+                        cur.executemany(que, data)
+                        logging.info(colored("Data inserted successfully.", "green", force_color=True))
+                    except Exception as e:
+                        logging.error(f"An error occurred: {e}")
+                        conn.rollback()
+                        continue
+                else:
+                    logging.info("Data is exist!")
             else:
-                logging.info("Data is exist!")
-        else:
-            logging.info("one of your query return None")
+                logging.info(colored("query return None from db", "yellow", force_color=True))
+        limit_days += 1
 
 
 def is_exist(conn, data, period):
