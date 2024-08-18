@@ -40,9 +40,10 @@ def get_data(cur,  date, period='daily'):
 
 
 def insert_data(cur, conn, period, queries):
-    limit_days = 0
-    while limit_days < 7:
-        date = dt.datetime.now().date() - dt.timedelta(days=limit_days)
+    day_start = 0
+    limit_days = 300
+    while day_start < limit_days:
+        date = dt.datetime.now().date() - dt.timedelta(days=day_start)
         conn.autocommit = True
 
         inserted_data = get_data(cur, date, period)
@@ -63,7 +64,7 @@ def insert_data(cur, conn, period, queries):
                     logging.info("Data is exist!")
             else:
                 logging.info(colored("query return None from db", "yellow", force_color=True))
-        limit_days += 1
+        day_start += 1
 
 
 def is_exist(conn, data, period):
