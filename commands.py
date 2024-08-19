@@ -49,7 +49,7 @@ daily_transactions_cmd = (''' WITH datas AS (
                     ''')
 
 
-weekly_wage_cmd = ('''SELECT DATE_PART('week', (tr_ge_date - INTERVAL '6 days')::date) AS Week_Number,
+weekly_wage_cmd = ('''SELECT DATE_PART('week', (tr_ge_date + INTERVAL '2 days' - INTERVAL '12 weeks')::date) AS Week_Number,
                     SUM(interest) AS Total_Interest,
                     MIN(tr_ge_date) as tr_ge_date
                     FROM public.financial_status_data fs
@@ -70,7 +70,8 @@ final_credit_cube_query = 'INSERT INTO final_credit_cube (branch_name, final_cre
 transaction_cube_query = 'INSERT INTO transaction_cube (branch_name, is_a_purchase, date, total_amount, stock_code) VALUES (%s, %s, %s, %s, %s) ;'
 
 
-checking_weekly_wage_cube = "SELECT * FROM public.weekly_wage_cube WHERE tr_ge_date = '{0}';"
+checking_weekly_wage_cube = ("SELECT * FROM public.weekly_wage_cube "
+                             "WHERE week_number = DATE_PART('week', ('{0}'::date + INTERVAL '2 days' - INTERVAL '12 weeks')::date);")
 
 checking_usable_credit_cube = "SELECT * FROM public.usable_credit_cube WHERE date = '{0}';"
 

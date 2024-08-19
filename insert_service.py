@@ -15,7 +15,7 @@ path = r"C:\Users\erfan\Downloads\projects\ETL\Prediction\App\routers\DbInfo.ini
 config.read(path)
 
 
-def get_data(cur,  date, period='daily'):
+def get_data(cur, date, period='daily'):
     command_map = {
         'daily': [
             daily_usable_credit_cmd,
@@ -40,13 +40,16 @@ def get_data(cur,  date, period='daily'):
 
 
 def insert_data(cur, conn, period, queries):
+    date = dt.datetime.now().date()
+
     day_start = 0
-    limit_days = 300
+    limit_days = 270
+
     while day_start < limit_days:
-        date = dt.datetime.now().date() - dt.timedelta(days=day_start)
+        query_date = date - dt.timedelta(days=day_start)
         conn.autocommit = True
 
-        inserted_data = get_data(cur, date, period)
+        inserted_data = get_data(cur, query_date, period)
         flags = is_exist(conn, inserted_data, period)
 
         for que, data, flag in zip(queries, inserted_data, flags):
@@ -55,6 +58,7 @@ def insert_data(cur, conn, period, queries):
                 if not flag:
                     try:
                         cur.executemany(que, data)
+                        conn.commit()
                         logging.info(colored("Data inserted successfully.", "green", force_color=True))
                     except Exception as e:
                         logging.error(f"An error occurred: {e}")
@@ -62,9 +66,11 @@ def insert_data(cur, conn, period, queries):
                         continue
                 else:
                     logging.info("Data is exist!")
-            else:
-                logging.info(colored("query return None from db", "yellow", force_color=True))
+            # else:
+            #     logging.info(colored("return None from db", "light_yellow", force_color=True))
         day_start += 1
+
+    logging.info(colored(f"{period} data in {date} run to insert and cube successfully", color="cyan", force_color=True))
 
 
 def is_exist(conn, data, period):
