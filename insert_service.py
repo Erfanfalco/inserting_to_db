@@ -1,21 +1,24 @@
 from apscheduler.schedulers.blocking import BlockingScheduler
-import configparser
-import psycopg2
 import logging
 from termcolor import colored
 import datetime as dt
-from commands import usable_credit_cube_query, transaction_cube_query, final_credit_cube_query, daily_usable_credit_cmd, \
-    daily_transactions_cmd, daily_final_credit_cmd, weekly_wage_cmd, weekly_wage_cube_query, \
-    checking_usable_credit_cube, checking_transaction_cube, checking_final_credit_cube, checking_weekly_wage_cube
 
-logging.basicConfig(level=logging.INFO)
+from database import DatabaseConnection
 
-config = configparser.ConfigParser()
-path = r"C:\Users\erfan\Downloads\projects\ETL\Prediction\App\routers\DbInfo.ini"
-config.read(path)
+from commands.daily_transactions import daily_transactions_cmd, checking_transaction_cube, transaction_cube_query
+from commands.final_credit import daily_final_credit_cmd, checking_final_credit_cube, final_credit_cube_query
+from commands.usable_credit import daily_usable_credit_cmd, checking_usable_credit_cube, usable_credit_cube_query
+from commands.weekly_wage import weekly_wage_cmd, checking_weekly_wage_cube, weekly_wage_cube_query
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Initialize database connection
+db_config_path = r"C:\Users\erfan\Downloads\projects\DbInfo.ini"
+db_conn = DatabaseConnection(db_config_path)
+db_conn.connect()
 
 
-def get_data(cur, date, period='daily'):
+def get_data(cursor, date, period='daily'):
     command_map = {
         'daily': [
             daily_usable_credit_cmd,
@@ -32,10 +35,11 @@ def get_data(cur, date, period='daily'):
 
     for query in cmd_list:
         try:
-            cur.execute(query.format(date))
-            exe_list.append(cur.fetchall())
+            cursor.execute(query.format(date))
+            exe_list.append(cursor.fetchall())
         except Exception as e:
             logging.error(f"An error occurred: {e}")
+
     return exe_list
 
 
@@ -43,21 +47,20 @@ def insert_data(cur, conn, period, queries):
     date = dt.datetime.now().date()
 
     day_start = 0
-    limit_days = 270
+    limit_days = 7
 
     while day_start < limit_days:
         query_date = date - dt.timedelta(days=day_start)
-        conn.autocommit = True
 
         inserted_data = get_data(cur, query_date, period)
-        flags = is_exist(conn, inserted_data, period)
+        exist = is_exist(conn, inserted_data, period)
 
-        for que, data, flag in zip(queries, inserted_data, flags):
+        for query, data, flag in zip(queries, inserted_data, exist):
 
             if any(any(item is not None for item in sub_data) for sub_data in data):
                 if not flag:
                     try:
-                        cur.executemany(que, data)
+                        cur.executemany(query, data)
                         conn.commit()
                         logging.info(colored("Data inserted successfully.", "green", force_color=True))
                     except Exception as e:
@@ -65,17 +68,15 @@ def insert_data(cur, conn, period, queries):
                         conn.rollback()
                         continue
                 else:
-                    logging.info("Data is exist!")
-            # else:
-            #     logging.info(colored("return None from db", "light_yellow", force_color=True))
+                    logging.info(f"Data in {query_date} is exist!")
         day_start += 1
 
-    logging.info(colored(f"{period} data in {date} run to insert and cube successfully", color="cyan", force_color=True))
+    logging.info(
+        colored(f"{period} data in {date} run to insert and cube successfully", color="cyan", force_color=True))
 
 
-def is_exist(conn, data, period):
-    cur = conn.cursor()
-
+def is_exist(connection, data, period):
+    cursor = connection.cursor()
     command_map = {
         'daily': [
             checking_usable_credit_cube,
@@ -92,8 +93,8 @@ def is_exist(conn, data, period):
     for query, table in zip(select_query, data):
         hasResponse = False
         for row in table:
-            cur.execute(query.format(row[2]))
-            response = cur.fetchone()
+            cursor.execute(query.format(row[2]))
+            response = cursor.fetchone()
 
             if response is not None:
                 hasResponse = True
@@ -103,40 +104,33 @@ def is_exist(conn, data, period):
     return results
 
 
-def create_conn():
-    host = config.get('my_db', 'host')
-    dbname = config.get('my_db', 'dbname')
-    user = config.get('my_db', 'user')
-    password = config.get('my_db', 'password')
-    conn_string = f"host={host} dbname={dbname} user={user} password={password}"
-    conn = psycopg2.connect(conn_string)
-    return conn
-
-
 # def schedule_insert_job():
 #     scheduler = BlockingScheduler()
-#     conn = create_conn()
-#     with conn.cursor() as cur:
-#         scheduler.add_job(lambda: insert_data(cur, conn, 'daily',
+#     connect = db_conn.get_connection()
+#     with db_conn.get_cursor() as cur:
+#         scheduler.add_job(lambda: insert_data(cur, connect, 'daily',
 #                                               [usable_credit_cube_query, transaction_cube_query,
 #                                                final_credit_cube_query]), 'cron', hour=15, minute=30, second=0,
 #                           day_of_week="sat-sun-mon-tue-wed")
 #
-#         scheduler.add_job(lambda: insert_data(cur, conn, 'weekly',
+#         scheduler.add_job(lambda: insert_data(cur, connect, 'weekly',
 #                                               [weekly_wage_cube_query]), 'cron', hour=15, minute=30, second=0,
 #                           day_of_week="fri")
+#
 #     try:
 #         scheduler.start()
-#     except (KeyboardInterrupt, SystemExit):
-#         pass
+#     except (KeyboardInterrupt, SystemExit) as e:
+#         logging.error(f"Scheduler interrupted: {e}")
 
 
 if __name__ == "__main__":
+
     # schedule_insert_job()
-    conns = create_conn()
-    with conns.cursor() as curs:
-        insert_data(curs, conns, 'daily',
+
+    connect = db_conn.get_connection()
+    with db_conn.get_cursor() as curs:
+        insert_data(curs, connect, 'daily',
                     [usable_credit_cube_query, transaction_cube_query,
                      final_credit_cube_query])
-        insert_data(curs, conns, 'weekly',
+        insert_data(curs, connect, 'weekly',
                     [weekly_wage_cube_query])
