@@ -12,5 +12,8 @@ weekly_wage_cmd = ('''SELECT DATE_PART('week', (tr_ge_date + INTERVAL '2 days' -
 weekly_wage_cube_query = 'INSERT INTO public.weekly_wage_cube (week_number, total_interest, tr_ge_date) VALUES (%s, %s, %s) ;'
 
 
-checking_weekly_wage_cube = ("SELECT * FROM public.weekly_wage_cube "
-                             "WHERE week_number = DATE_PART('week', ('{0}'::date + INTERVAL '2 days' - INTERVAL '12 weeks')::date);")
+checking_date_weekly_wage_cube = ("SELECT * FROM public.weekly_wage_cube "
+                                  "WHERE week_number = DATE_PART('week', ('{0}'::date + INTERVAL '2 days' - INTERVAL '12 weeks')::date);")
+
+
+updating_amount_weekly_wage_cube = "UPDATE public.weekly_wage_cube SET total_interest = '{0}' WHERE tr_ge_date = '{1}';"

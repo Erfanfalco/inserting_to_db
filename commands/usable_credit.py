@@ -10,5 +10,7 @@ daily_usable_credit_cmd = ('''SELECT  customer_data.branch_name, SUM(usable_cred
 usable_credit_cube_query = 'INSERT INTO usable_credit_cube (branch_name, sum_credit, date) VALUES (%s, %s, %s) ;'
 
 
-checking_usable_credit_cube = "SELECT * FROM public.usable_credit_cube WHERE date = '{0}';"
+checking_date_usable_credit_cube = "SELECT * FROM public.usable_credit_cube WHERE date = '{0}';"
+
+updating_amount_usable_credit_cube = "UPDATE public.usable_credit_cube SET sum_credit = '{0}' WHERE date = '{1}';"
 

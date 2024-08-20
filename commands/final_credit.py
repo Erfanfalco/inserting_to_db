@@ -8,6 +8,11 @@ daily_final_credit_cmd = ('''SELECT cd.branch_name, sum(fn.credit)::float as Fin
                     order by branch_name, FinalCredit DESC;
                     ''')
 
+
 final_credit_cube_query = 'INSERT INTO final_credit_cube (branch_name, final_credit, tr_ge_date) VALUES (%s, %s, %s) ;'
 
-checking_final_credit_cube = "SELECT * FROM public.final_credit_cube WHERE tr_ge_date = '{0}';"
+
+checking_date_final_credit_cube = "SELECT * FROM public.final_credit_cube WHERE tr_ge_date = '{0}';"
+
+
+updating_amount_final_credit_cube = "UPDATE public.final_credit_cube SET final_credit = '{0}' WHERE tr_ge_date = '{1}';"

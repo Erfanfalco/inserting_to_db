@@ -15,9 +15,9 @@ daily_transactions_cmd = (''' WITH datas AS (
                     )
                     SELECT 
                         cd.branch_name,
-                        bool_or(datas.is_a_purchase) AS is_a_purchase,
-                        MIN(datas.earliest_transaction_date) AS Earliest_transaction_date,
                         MAX(datas.total_amount) AS Total_amount,
+                        MIN(datas.earliest_transaction_date) AS Earliest_transaction_date,
+                        bool_or(datas.is_a_purchase) AS is_a_purchase,
                         datas.stock_ins_max_l_code
                     FROM 
                         datas
@@ -28,7 +28,10 @@ daily_transactions_cmd = (''' WITH datas AS (
                     ''')
 
 
-transaction_cube_query = 'INSERT INTO transaction_cube (branch_name, is_a_purchase, date, total_amount, stock_code) VALUES (%s, %s, %s, %s, %s) ;'
+transaction_cube_query = 'INSERT INTO transaction_cube (branch_name, total_amount, date, is_a_purchase, stock_code) VALUES (%s, %s, %s, %s, %s) ;'
 
 
-checking_transaction_cube = "SELECT * FROM public.transaction_cube WHERE date = '{0}';"
+checking_date_transaction_cube = "SELECT * FROM public.transaction_cube WHERE date = '{0}';"
+
+
+updating_amount_transaction_cube = "UPDATE public.transaction_cube SET total_amount = '{0}' WHERE date = '{1}';"
