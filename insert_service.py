@@ -5,6 +5,10 @@ import datetime as dt
 
 from database import DatabaseConnection
 
+from protocols import CursorLike, ConnectionLike
+from typing import List, Tuple
+
+
 from commands.daily_transactions import daily_transactions_cmd, checking_date_transaction_cube, transaction_cube_query, \
     updating_amount_transaction_cube
 from commands.final_credit import daily_final_credit_cmd, checking_date_final_credit_cube, final_credit_cube_query, \
@@ -14,6 +18,7 @@ from commands.usable_credit import daily_usable_credit_cmd, checking_date_usable
 from commands.weekly_wage import weekly_wage_cmd, checking_date_weekly_wage_cube, weekly_wage_cube_query, \
     updating_amount_weekly_wage_cube
 
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Initialize database connection
@@ -22,7 +27,7 @@ db_conn = DatabaseConnection(db_config_path)
 db_conn.connect()
 
 
-def get_data(cursor, date, period='daily'):
+def get_data(cursor: CursorLike, date: dt.date, period: str = 'daily') -> List[List[Tuple]]:
     command_map = {
         'daily': [
             daily_usable_credit_cmd,
@@ -47,7 +52,8 @@ def get_data(cursor, date, period='daily'):
     return exe_list
 
 
-def insert_data(cur, conn, period, queries):
+def insert_data(cur: CursorLike, conn: DatabaseConnection, period: str, queries: List[str]) -> None:
+    connection = conn.get_connection()
     date = dt.datetime.now().date()
 
     day_start = 0
@@ -57,7 +63,7 @@ def insert_data(cur, conn, period, queries):
         query_date = date - dt.timedelta(days=day_start)
 
         inserted_data = get_data(cur, query_date, period)
-        exist = is_exist(conn, inserted_data, period)
+        exist = is_exist(conn, connection, inserted_data, period)
 
         for query, data, flag in zip(queries, inserted_data, exist):
 
@@ -65,11 +71,11 @@ def insert_data(cur, conn, period, queries):
                 if not flag:
                     try:
                         cur.executemany(query, data)
-                        conn.commit()
+                        connection.commit()
                         logging.info(colored("Data inserted successfully.", "light_green", force_color=True))
                     except Exception as e:
                         logging.error(f"An error occurred: {e}")
-                        conn.rollback()
+                        connection.rollback()
                         continue
                 else:
                     logging.info(f"Data in {query_date} is exist!")
@@ -80,8 +86,8 @@ def insert_data(cur, conn, period, queries):
                 force_color=True))
 
 
-def is_exist(connection, data, period):
-    cursor = connection.cursor()
+def is_exist(db_connection: DatabaseConnection, connection: ConnectionLike, data: List[List[Tuple]], period: str) -> List[bool]:
+    cursor = db_connection.get_cursor()
     checking_query = {
         'daily': [
             checking_date_usable_credit_cube,
@@ -130,16 +136,16 @@ def is_exist(connection, data, period):
 
 def schedule_insert_job():
     scheduler = BlockingScheduler()
-    connect = db_conn.get_connection()
-    with db_conn.get_cursor() as cur:
-        scheduler.add_job(lambda: insert_data(cur, connect, 'daily',
-                                              [usable_credit_cube_query, transaction_cube_query,
-                                               final_credit_cube_query]), 'cron', hour=15, minute=30, second=0,
-                          day_of_week="sat-sun-mon-tue-wed")
 
-        scheduler.add_job(lambda: insert_data(cur, connect, 'weekly',
-                                              [weekly_wage_cube_query]), 'cron', hour=15, minute=30, second=0,
-                          day_of_week="fri")
+    with db_conn.get_cursor() as cur:
+        scheduler.add_job(lambda: insert_data(cur, db_conn, 'daily',
+                                              [usable_credit_cube_query, transaction_cube_query,
+                                               final_credit_cube_query]),
+                          'cron', hour=15, minute=30, second=0, day_of_week="sat-sun-mon-tue-wed")
+
+        scheduler.add_job(lambda: insert_data(cur, db_conn, 'weekly',
+                                              [weekly_wage_cube_query]),
+                          'cron', hour=15, minute=30, second=0, day_of_week="fri")
 
     try:
         scheduler.start()
@@ -148,12 +154,12 @@ def schedule_insert_job():
 
 
 if __name__ == "__main__":
-    schedule_insert_job()
 
-    # connect = db_conn.get_connection()
-    # with db_conn.get_cursor() as curs:
-    #     insert_data(curs, connect, 'daily',
-    #                 [usable_credit_cube_query, transaction_cube_query,
-    #                  final_credit_cube_query])
-    #     insert_data(curs, connect, 'weekly',
-    #                 [weekly_wage_cube_query])
+    # schedule_insert_job()
+
+    with db_conn.get_cursor() as curs:
+        insert_data(curs, db_conn, 'daily',
+                    [usable_credit_cube_query, transaction_cube_query,
+                     final_credit_cube_query])
+        insert_data(curs, db_conn, 'weekly',
+                    [weekly_wage_cube_query])

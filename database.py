@@ -2,8 +2,13 @@ import psycopg2
 import logging
 from configparser import ConfigParser
 
+from typing import Optional
+
+from protocols import ConnectionLike, CursorLike
+
 
 class DatabaseConnection:
+
     def __init__(self, config_file_path):
         self.config = ConfigParser()
         self.config.read(config_file_path)
@@ -23,7 +28,7 @@ class DatabaseConnection:
             logging.error(f"Failed to establish database connection: {e}")
             raise
 
-    def get_connection(self):
+    def get_connection(self) -> ConnectionLike:
         return self.connection
 
     def close(self):
@@ -32,7 +37,7 @@ class DatabaseConnection:
             self.connection.close()
             logging.info("Database connection closed.")
 
-    def get_cursor(self):
+    def get_cursor(self) -> Optional[CursorLike]:
         """Returns a new cursor object."""
         if self.connection:
             return self.connection.cursor()
