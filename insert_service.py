@@ -72,7 +72,7 @@ def insert_data(cur: CursorLike, conn: DatabaseConnection, period: str) -> None:
     queries = command_map[period]
 
     day_start = 0
-    limit_days = 7
+    limit_days = 300
 
     while day_start < limit_days:
         query_date = date - dt.timedelta(days=day_start)

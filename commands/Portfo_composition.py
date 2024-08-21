@@ -4,7 +4,7 @@ portfo_composition_cmd = ('''SELECT stock_ins_max_l_code, Sum(stock_price) as st
                             from customer_stock cs
                             INNER join customer_credit_data cd
                             on cd.account_number = cs.account_number
-                            WHERE TO_DATE(cs.date_to_ge, 'YYYY-MM-DD') = '2024-05-21'
+                            WHERE TO_DATE(cs.date_to_ge, 'YYYY-MM-DD') = '{0}'
                             GROUP by cs.stock_ins_max_l_code, cs.date_to_ge;
                             ''')
 
